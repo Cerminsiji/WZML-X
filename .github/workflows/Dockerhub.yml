@@ -2,9 +2,9 @@ name: Bikin hub.docker.com
 
 on:
   push:
-   branches: [ master ]
+   branches: [ wzv3 ]
   pull_request:
-    branches: [ master ]
+    branches: [ wzv3 ]
       
 jobs:
   build:
