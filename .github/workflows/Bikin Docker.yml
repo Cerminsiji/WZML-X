@@ -1,5 +1,5 @@
 name: Bikin Docker Image
-
+on: workflow_dispatch
 on:
   push:
     branches: [ "wzv3" ]
