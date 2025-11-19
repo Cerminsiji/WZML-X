@@ -80,7 +80,7 @@ if DATABASE_URL := config_file.get("DATABASE_URL", "").strip():
         ) and config_dict is not None:
             config_file["UPSTREAM_REPO"] = config_dict["UPSTREAM_REPO"]
             config_file["UPSTREAM_BRANCH"] = config_dict.get("UPSTREAM_BRANCH", "wzv3")
-            config_file["UPDATE_PKGS"] = config_dict.get("UPDATE_PKGS", "False")
+            config_file["UPDATE_PKGS"] = config_dict.get("UPDATE_PKGS", "True")
         conn.close()
     except Exception as e:
         log_error(f"Database ERROR: {e}")
@@ -115,7 +115,7 @@ if UPSTREAM_REPO:
     log_info(f"UPSTREAM_REPO: {UPSTREAM_REPO} | UPSTREAM_BRANCH: {UPSTREAM_BRANCH}")
 
 
-UPDATE_PKGS = config_file.get("UPDATE_PKGS", "False)
-if (isinstance(UPDATE_PKGS, str) and UPDATE_PKGS.lower() == "False") or UPDATE_PKGS:
+UPDATE_PKGS = config_file.get("UPDATE_PKGS", "True")
+if (isinstance(UPDATE_PKGS, str) and UPDATE_PKGS.lower() == "true") or UPDATE_PKGS:
     scall("uv pip install -U -r requirements.txt", shell=True)
     log_info("Successfully Updated all the Packages !")
