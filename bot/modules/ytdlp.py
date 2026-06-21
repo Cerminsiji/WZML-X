@@ -228,11 +228,11 @@ class YtSelection:
         buttons = ButtonMaker()
         for qual in range(11):
             audio_format = f"{format}{qual}"
-            buttons.data_button(qual, f"ytq {audio_format}")
+            buttons.data_button(str(qual), f"ytq {audio_format}")
         buttons.data_button("Back", "ytq aq back")
-        buttons.data_button("Cancel", "ytq aq cancel")
+        buttons.data_button("Cancel", "ytq cancel")
         subbuttons = buttons.build_menu(5)
-        msg = f"Choose Audio{i} Qaulity:\n0 is best and 10 is worst\nTimeout: {get_readable_time(self._timeout - (time() - self._time))}"
+        msg = f"Choose Audio{i} Quality:\n0 is best and 10 is worst\nTimeout: {get_readable_time(self._timeout - (time() - self._time))}"
         await edit_message(self._reply_to, msg, subbuttons)
 
 
@@ -449,7 +449,8 @@ class YtDlp(TaskListener):
         opt = opt or self.user_dict.get("YT_DLP_OPTIONS") or Config.YT_DLP_OPTIONS
 
         if not self.link and (reply_to := self.message.reply_to_message):
-            self.link = reply_to.text.split("\n", 1)[0].strip()
+            if reply_to.text:
+                self.link = reply_to.text.split("\n", 1)[0].strip()
 
         if not is_url(self.link):
             await send_message(
@@ -522,8 +523,14 @@ class YtDlp(TaskListener):
 
 
 async def ytdl(client, message):
+    if Config.DISABLE_YTDLP:
+        await message.reply("YT-DLP downloads are currently disabled by the Bot Owner.")
+        return
     bot_loop.create_task(YtDlp(client, message).new_event())
 
 
 async def ytdl_leech(client, message):
+    if Config.DISABLE_YTDLP:
+        await message.reply("YT-DLP downloads are currently disabled by the Bot Owner.")
+        return
     bot_loop.create_task(YtDlp(client, message, is_leech=True).new_event())
