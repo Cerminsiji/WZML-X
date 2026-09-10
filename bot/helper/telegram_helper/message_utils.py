@@ -3,12 +3,14 @@ from random import choice
 from re import match as re_match
 from time import time
 
-from pyrogram.types import Message, InputMediaPhoto
+from pyrogram.types import Message, InputMediaPhoto, ReplyParameters
 from pyrogram.enums import ButtonStyle, ParseMode
 from pyrogram.errors import (
     FloodWait,
     MessageNotModified,
     MessageEmpty,
+    MessageTooLong,
+    MessageDeleteForbidden,
     ReplyMarkupInvalid,
     PhotoInvalidDimensions,
     WebpageCurlFailed,
@@ -54,7 +56,7 @@ async def send_message(message, text, buttons=None, block=True, photo=None, **kw
                     if isinstance(message, Message):
                         return await message.reply(
                             text=text,
-                            quote=True,
+                            reply_parameters=ReplyParameters(message_id=message.id),
                             disable_web_page_preview=True,
                             disable_notification=True,
                             reply_markup=buttons,
@@ -70,9 +72,8 @@ async def send_message(message, text, buttons=None, block=True, photo=None, **kw
                 if isinstance(message, Message):
                     return await message.reply_photo(
                         photo=photo,
-                        reply_to_message_id=message.id,
                         caption=text,
-                        quote=True,
+                        reply_parameters=ReplyParameters(message_id=message.id),
                         reply_markup=buttons,
                         disable_notification=True,
                         **kwargs,
@@ -122,7 +123,7 @@ async def send_message(message, text, buttons=None, block=True, photo=None, **kw
         if isinstance(message, Message):
             return await message.reply(
                 text=text,
-                quote=True,
+                reply_parameters=ReplyParameters(message_id=message.id),
                 disable_web_page_preview=True,
                 disable_notification=True,
                 reply_markup=buttons,
@@ -144,6 +145,8 @@ async def send_message(message, text, buttons=None, block=True, photo=None, **kw
     except ReplyMarkupInvalid as rmi:
         LOGGER.warning(str(rmi))
         return await send_message(message, text, None)
+    except MessageTooLong:
+        return await send_message(message, text[:4096], buttons, block, photo)
     except (MessageEmpty, EntityBoundsInvalid):
         return await send_message(message, text, parse_mode=ParseMode.DISABLED)
     except PeerIdInvalid:
@@ -159,6 +162,14 @@ async def send_message(message, text, buttons=None, block=True, photo=None, **kw
 
 async def edit_message(message, text, buttons=None, block=True, photo=None):
     try:
+        if not isinstance(text, str):
+            return await TgClient.bot.edit_message_text(
+                message.chat.id,
+                message.id,
+                "",
+                rich_text=text,
+                reply_markup=buttons,
+            )
         if message.media:
             if photo:
                 if photo == "IMAGES":
@@ -206,7 +217,7 @@ async def edit_message(message, text, buttons=None, block=True, photo=None):
             return str(f)
         await sleep(f.value * 1.2)
         return await edit_message(message, text, buttons, block, photo)
-    except ConnectionError:
+    except OSError:
         return
     except Exception as e:
         LOGGER.error(str(e), exc_info=True)
@@ -222,7 +233,7 @@ async def edit_reply_markup(message, buttons):
         LOGGER.warning(str(f))
         await sleep(f.value * 1.2)
         return await edit_reply_markup(message, buttons)
-    except ConnectionError:
+    except OSError:
         return
     except Exception as e:
         LOGGER.error(str(e), exc_info=True)
@@ -233,7 +244,7 @@ async def send_file(message, file, caption="", buttons=None):
     try:
         return await message.reply_document(
             document=file,
-            quote=True,
+            reply_parameters=ReplyParameters(message_id=message.id),
             caption=caption,
             disable_notification=True,
             reply_markup=buttons,
@@ -275,7 +286,9 @@ async def delete_message(*args):
         return
     results = await gather(*tasks, return_exceptions=True)
     for result in results:
-        if isinstance(result, Exception):
+        if isinstance(result, MessageDeleteForbidden):
+            pass
+        elif isinstance(result, Exception):
             LOGGER.error(result)
 
 
@@ -562,16 +575,66 @@ async def open_drive_clean(message):
         buttons.build_menu(3),
     )
     start_time = time()
-    bot_cache[msg_id] = [None, False, False, start_time]
+    bot_cache[msg_id] = [None, False, False, start_time, None]
     while time() - start_time <= 60:
         await sleep(0.5)
         if bot_cache[msg_id][1] or bot_cache[msg_id][2]:
             break
     drive_id = bot_cache[msg_id][0]
     is_cancelled = bot_cache[msg_id][1]
+    cat_name = bot_cache[msg_id][4]
     if not is_cancelled:
         await delete_message(prompt)
     else:
         await edit_message(prompt, "<b>Task Cancelled</b>")
     del bot_cache[msg_id]
-    return drive_id, is_cancelled
+    return drive_id, is_cancelled, cat_name
+
+
+async def open_dump_chat_btns(message, dump_chats, invalid_name=None):
+    user_id = message.from_user.id
+    msg_id = message.id
+    cache_key = f"sdump_{msg_id}"
+    buttons = ButtonMaker()
+    dump_names = list(dump_chats)
+    selected_name = dump_names[0] if dump_names else None
+    for i, name in enumerate(dump_names):
+        buttons.data_button(
+            f"{'✓️' if i == 0 else ''} {name}",
+            f"sdump {user_id} {msg_id} {i}",
+        )
+    buttons.data_button(
+        "Cancel",
+        f"sdump {user_id} {msg_id} scancel",
+        "footer",
+        style=ButtonStyle.DANGER,
+    )
+    buttons.data_button(
+        "Done (60)",
+        f"sdump {user_id} {msg_id} sdone",
+        "footer",
+        style=ButtonStyle.SUCCESS,
+    )
+    invalid_hint = (
+        f"\n\n<b>Unknown dump:</b> <code>{invalid_name}</code>" if invalid_name else ""
+    )
+    prompt = await send_message(
+        message,
+        f"<b>Select the dump chat for this task</b>{invalid_hint}\n\n"
+        f"<i><b>Dump Chat:</b></i> <code>{selected_name or 'None'}</code>\n\n"
+        f"<b>Timeout:</b> 60 sec",
+        buttons.build_menu(3),
+    )
+    start_time = time()
+    bot_cache[cache_key] = [dump_chats.get(selected_name), False, False, start_time]
+    while time() - start_time <= 60:
+        await sleep(0.5)
+        if bot_cache[cache_key][1] or bot_cache[cache_key][2]:
+            break
+    up_dest, _, is_cancelled, __ = bot_cache[cache_key]
+    if not is_cancelled:
+        await delete_message(prompt)
+    else:
+        await edit_message(prompt, "<b>Task Cancelled</b>")
+    del bot_cache[cache_key]
+    return up_dest, is_cancelled

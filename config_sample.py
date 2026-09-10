@@ -17,6 +17,8 @@ DEFAULT_UPLOAD = "rc"
 STATUS_UPDATE_INTERVAL = 15
 FILELION_API = ""
 STREAMWISH_API = ""
+ALLDEBRID_API_KEY = ""
+ALLDEBRID_NO_SEED_TIMEOUT = 180
 EXCLUDED_EXTENSIONS = ""
 INC_TASK_NOTIFY = False
 YT_DLP_OPTIONS = ""
@@ -30,6 +32,7 @@ WEB_ACCESS_PASSWORD = (
 
 # Hyper Tg Downloader
 HELPER_TOKENS = ""
+STREAM_TOKENS = ""
 USE_HYPER = True
 
 # MegaAPI v4.30
@@ -40,15 +43,26 @@ DISABLE_MEGA = False
 # Disable Options
 DISABLE_TORRENTS = False
 DISABLE_LEECH = False
+DISABLE_MIRROR = False
 DISABLE_BULK = False
 DISABLE_MULTI = False
 DISABLE_SEED = False
 DISABLE_FF_MODE = False
 DISABLE_JD = False
 DISABLE_NZB = False
+DISABLE_SEEDR = False
 DISABLE_RSS = False
 DISABLE_SEARCH = False
+DISABLE_STREAM = False
 DISABLE_YTDLP = False
+DISABLE_PLUGINS = False
+
+# Plugins
+PLUGIN_INDEXES = []
+
+# Memory
+MEM_BUDGET = 0
+MEM_DEEP_STATS = False
 
 # Telegraph
 AUTHOR_NAME = "WZML-X"
@@ -63,6 +77,7 @@ RC_DL_LIMIT = 0
 CLONE_LIMIT = 0
 JD_LIMIT = 0
 NZB_LIMIT = 0
+SEEDR_LIMIT = 0
 YTDLP_LIMIT = 0
 PLAYLIST_LIMIT = 0
 LEECH_LIMIT = 0
@@ -72,6 +87,11 @@ STORAGE_LIMIT = 0
 
 # CPU limit for background services (SABnzbd, JDownloader). Default: 20
 CPU_LIMIT = 20
+
+# CPUs given to FFmpeg. auto=60% of them, all/0=every CPU, a count like 5,
+# a percentage like 75%, or an explicit taskset list like 0-4 / 0,1,2,3.
+# Background services get whatever is left over.
+FFMPEG_CORES = "auto"
 
 # Throttle services during heavy ops (FFmpeg). auto=low-end only, always, never
 THROTTLE_SERVICES = "auto"
@@ -90,24 +110,14 @@ HYDRA_IP = ""
 HYDRA_API_KEY = ""
 
 # Media Search
-IMDB_TEMPLATE = """<b>Title: </b> {title} [{year}]
-<b>Also Known As:</b> {aka}
-<b>Rating ⭐️:</b> <i>{rating}</i>
-<b>Release Info: </b> <a href="{url_releaseinfo}">{release_date}</a>
-<b>Genre: </b>{genres}
-<b>IMDb URL:</b> {url}
-<b>Language: </b>{languages}
-<b>Country of Origin : </b> {countries}
-
-<b>Story Line: </b><code>{plot}</code>
-
-<a href="{url_cast}">Read More ...</a>"""
+# Optional: Set IMDB_TEMPLATE to use old HTML format instead of Rich Messages.
+# If empty (default), IMDb uses Rich Messages with tables and collapsible sections.
+IMDB_TEMPLATE = ""
 
 # Task Tools
 FORCE_SUB_IDS = ""
 MEDIA_STORE = True
 DELETE_LINKS = False
-CLEAN_LOG_MSG = False
 
 # Limiters
 BOT_MAX_TASKS = 0
@@ -115,6 +125,9 @@ USER_MAX_TASKS = 0
 USER_TIME_INTERVAL = 0
 VERIFY_TIMEOUT = 0
 LOGIN_PASS = ""
+
+# Crash Reporting
+ENABLE_TELEMETRY = True  # Send crash reports to remote worker
 
 # Bot Settings
 BOT_PM = False
@@ -171,7 +184,7 @@ USENET_SERVERS = [
 
 # Update
 UPSTREAM_REPO = ""
-UPSTREAM_BRANCH = "master"
+UPSTREAM_BRANCH = "wzv3"
 # Leech
 LEECH_SPLIT_SIZE = 0
 AS_DOCUMENT = False
@@ -183,9 +196,18 @@ LEECH_SUFFIX = ""
 LEECH_FONT = ""
 LEECH_CAPTION = ""
 THUMBNAIL_LAYOUT = ""
+TMDB_ACCESS_TOKEN = ""
+AUTO_THUMBNAIL = False
 
 # Log Channels
-LEECH_DUMP_CHAT = ""
+LEECH_LOG_CHAT = ""
+# Named leech dump chats, selectable per task with the -ud flag.
+# The chosen chat becomes the primary upload destination for the task.
+# Format: {"name": chat_id}
+LEECH_DUMP_CHATS = {
+    # "A": -1001234567890,
+    # "B": -1009876543210,
+}
 LINKS_LOG_ID = ""
 MIRROR_LOG_ID = ""
 
@@ -226,3 +248,8 @@ SEARCH_PLUGINS = [
     "https://raw.githubusercontent.com/msagca/qbittorrent_plugins/main/uniondht.py",
     "https://raw.githubusercontent.com/khensolomon/leyts/master/yts.py",
 ]
+
+# Seedr (magnet mirroring via seedr.cc)
+SEEDR_EMAIL = ""
+SEEDR_PASSWORD = ""
+SEEDR_DELETE_FOLDER = False

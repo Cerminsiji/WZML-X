@@ -29,10 +29,11 @@ SERVICE_MAP = {
 
 
 class MultiUphosterUpload:
-    def __init__(self, listener, path, services):
+    def __init__(self, listener, path, services, folder_name=""):
         self.listener = listener
         self.path = path
         self.services = services
+        self.folder_name = folder_name
         self.uploaders = []
         self._processed_bytes = 0
         self._speed = 0
@@ -43,7 +44,9 @@ class MultiUphosterUpload:
         for service in services:
             uploader_cls = SERVICE_MAP.get(service)
             if uploader_cls:
-                self.uploaders.append(uploader_cls(ProxyListener(self, service), path))
+                self.uploaders.append(
+                    uploader_cls(ProxyListener(self, service), path, self.folder_name)
+                )
 
     @property
     def speed(self):
@@ -67,6 +70,8 @@ class MultiUphosterUpload:
     async def on_upload_complete(
         self, service, link, files, folders, mime_type, dir_id=""
     ):
+        if service in self.results:
+            return
         self.results[service] = {
             "link": link,
             "files": files,
@@ -78,6 +83,8 @@ class MultiUphosterUpload:
         await self._check_completion()
 
     async def on_upload_error(self, service, error):
+        if service in self.results:
+            return
         self.results[service] = {"error": error}
         self.failed.append(service)
         LOGGER.error(f"{service.capitalize()} Upload Failed: {error}")

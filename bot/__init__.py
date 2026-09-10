@@ -21,7 +21,6 @@ from logging import (
     basicConfig,
     getLogger,
 )
-from os import cpu_count
 from time import time
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -29,11 +28,9 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from .core.config_manager import Config
 from sabnzbdapi import SabnzbdClient
 
-getLogger("requests").setLevel(WARNING)
-getLogger("urllib3").setLevel(WARNING)
+getLogger("niquests").setLevel(WARNING)
 getLogger("pyrogram").setLevel(ERROR)
 getLogger("apscheduler").setLevel(ERROR)
-getLogger("httpx").setLevel(WARNING)
 getLogger("pymongo").setLevel(WARNING)
 getLogger("aiohttp").setLevel(WARNING)
 
@@ -48,15 +45,6 @@ basicConfig(
 )
 
 LOGGER = getLogger(__name__)
-cpu_no = cpu_count() or 1
-threads = max(1, cpu_no // 2)
-cores = ",".join(str(i) for i in range(1, threads + 1))
-
-if cpu_no <= 1 or cpu_no == 2:
-    service_cores = ""
-else:
-    service_start = threads + 1
-    service_cores = ",".join(str(i) for i in range(service_start, cpu_no + 1))
 
 bot_cache = {}
 DOWNLOAD_DIR = "/usr/src/app/downloads/"
@@ -146,6 +134,7 @@ sabnzbd_client = SabnzbdClient(
     host="http://localhost",
     api_key=_sabnzbd_api_key,
     port="8070",
+    RETRIES=1,
 )
 
 scheduler = AsyncIOScheduler(event_loop=bot_loop)

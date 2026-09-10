@@ -135,6 +135,8 @@ class SmartLock:
 
     async def release(self):
         async with self._lock:
+            if self._active == 0:
+                return
             should_resume = (
                 self._throttled
                 and self._active >= self._get_max_slots()
@@ -158,12 +160,12 @@ class SmartLock:
         for t in targets:
             try:
                 if t == "nzb" and not Config.DISABLE_NZB:
-                    from .. import sabnzbd_client
+                    from ... import sabnzbd_client
 
                     if sabnzbd_client.LOGGED_IN:
                         await sabnzbd_client.pause_all()
                 elif t == "jd" and not Config.DISABLE_JD:
-                    from ..core.jdownloader_booter import jdownloader
+                    from ...core.jdownloader_booter import jdownloader
 
                     if jdownloader.is_connected:
                         await jdownloader.device.downloadcontroller.stop_downloads()
@@ -174,12 +176,12 @@ class SmartLock:
         for t in targets:
             try:
                 if t == "nzb" and not Config.DISABLE_NZB:
-                    from .. import sabnzbd_client
+                    from ... import sabnzbd_client
 
                     if sabnzbd_client.LOGGED_IN:
                         await sabnzbd_client.resume_all()
                 elif t == "jd" and not Config.DISABLE_JD:
-                    from ..core.jdownloader_booter import jdownloader
+                    from ...core.jdownloader_booter import jdownloader
 
                     if jdownloader.is_connected:
                         await jdownloader.device.downloadcontroller.start_downloads()

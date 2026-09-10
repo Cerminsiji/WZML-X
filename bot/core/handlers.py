@@ -12,7 +12,7 @@ from ..modules import *
 from .tg_client import TgClient
 
 
-def add_handlers():
+async def add_handlers():
     TgClient.bot.add_handler(
         MessageHandler(
             authorize,
@@ -78,6 +78,18 @@ def add_handlers():
     TgClient.bot.add_handler(
         CallbackQueryHandler(
             edit_bot_settings, filters=regex("^botset") & CustomFilters.sudo
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
+            memory_stats,
+            filters=command(BotCommands.MemoryCommand, case_sensitive=True)
+            & CustomFilters.sudo,
+        )
+    )
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(
+            memory_callback, filters=regex("^mem") & CustomFilters.sudo
         )
     )
     TgClient.bot.add_handler(
@@ -228,6 +240,13 @@ def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
+            seedr_link,
+            filters=command(BotCommands.SeedrLinkCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
             uphoster,
             filters=command(BotCommands.UpHosterCommand, case_sensitive=True)
             & CustomFilters.authorized,
@@ -293,16 +312,6 @@ def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
-            imdb_search,
-            filters=command(BotCommands.IMDBCommand, case_sensitive=True)
-            & CustomFilters.authorized,
-        )
-    )
-    TgClient.bot.add_handler(
-        CallbackQueryHandler(imdb_callback, filters=regex("^imdb"))
-    )
-    TgClient.bot.add_handler(
-        MessageHandler(
             ping,
             filters=command(BotCommands.PingCommand, case_sensitive=True)
             & CustomFilters.authorized,
@@ -317,8 +326,8 @@ def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
-            mediainfo,
-            filters=command(BotCommands.MediaInfoCommand, case_sensitive=True)
+            stream_links,
+            filters=command(BotCommands.StreamCommand, case_sensitive=True)
             & CustomFilters.authorized,
         )
     )
@@ -403,20 +412,6 @@ def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
-            hydra_search,
-            filters=command(BotCommands.NzbSearchCommand, case_sensitive=True)
-            & CustomFilters.authorized,
-        )
-    )
-    TgClient.bot.add_handler(
-        MessageHandler(
-            gen_pyro_string,
-            filters=command(BotCommands.GenPyroSessCommand, case_sensitive=True)
-            & CustomFilters.sudo,
-        )
-    )
-    TgClient.bot.add_handler(
-        MessageHandler(
             change_category,
             filters=command(BotCommands.CategorySelectCommand)
             & CustomFilters.authorized,
@@ -424,6 +419,9 @@ def add_handlers():
     )
     TgClient.bot.add_handler(
         CallbackQueryHandler(confirm_category, filters=regex("^scat"))
+    )
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(confirm_dump_chat, filters=regex("^sdump"))
     )
     TgClient.bot.add_handler(
         MessageHandler(
@@ -469,12 +467,20 @@ def add_handlers():
                 6,
             )
 
+        if not Config.DISABLE_SEEDR:
+            BOT_COMMANDS = insert_at(
+                BOT_COMMANDS,
+                "SeedrLink",
+                "[magnet] Get direct Seedr HTTP download links",
+                9,
+            )
+
         if Config.LOGIN_PASS:
             BOT_COMMANDS = insert_at(
                 BOT_COMMANDS, "Login", "[password] Login to Bot", 14
             )
 
-        TgClient.bot.set_bot_commands(
+        await TgClient.bot.set_bot_commands(
             [
                 BotCommand(
                     cmds[0] if isinstance(cmds, list) else cmds,

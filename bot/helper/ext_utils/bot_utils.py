@@ -5,6 +5,7 @@ from asyncio import (
     sleep,
 )
 from asyncio.subprocess import PIPE
+from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial, wraps
 from hashlib import sha256
@@ -16,8 +17,8 @@ from secrets import token_bytes
 from aiofiles import open as aiopen
 from aiofiles.os import mkdir
 from aiofiles.os import path as aiopath
-from httpx import AsyncClient, Limits
-from pyrogram.enums import ButtonStyle
+from niquests import AsyncSession
+from pyrogram.enums import ButtonStyle, ChatType
 from pyrogram.handlers import MessageHandler
 
 from ... import LOGGER, bot_loop, user_data
@@ -133,9 +134,9 @@ def _build_command_usage(help_dict, command_key):
             buttons.data_button(name, f"help {command_key} {name} {i}")
         if len(cmd_pages) > 1:
             if i > 0:
-                buttons.data_button("⫷", f"help pre {command_key} {i - 1}")
+                buttons.data_button("⫷", f"help pre {command_key} {i - 1}", "l_body")
             if i < len(cmd_pages) - 1:
-                buttons.data_button("⫸", f"help nex {command_key} {i + 1}")
+                buttons.data_button("⫸", f"help nex {command_key} {i + 1}", "l_body")
         buttons.data_button("Close", "help close", "footer", style=ButtonStyle.DANGER)
         temp_store.append(buttons.build_menu(2))
         buttons.reset()
@@ -150,7 +151,12 @@ def create_help_buttons():
 
 
 def compare_versions(v1, v2):
-    v1, v2 = (list(map(int, v.split("-")[0].lstrip("v").split("."))) for v in (v1, v2))
+    try:
+        v1, v2 = (
+            list(map(int, v.split("-")[0].lstrip("v").split("."))) for v in (v1, v2)
+        )
+    except (ValueError, IndexError, AttributeError):
+        return f"Check Versions Manually | Local: {v1} | Latest: {v2}"
     return (
         "New Version Update is Available! Check Now!"
         if v1 < v2
@@ -162,20 +168,27 @@ def compare_versions(v1, v2):
     )
 
 
-def bt_selection_buttons(id_):
+def bt_selection_buttons(id_, message=None):
     gid = id_[:12] if len(id_) > 25 else id_
     bot_id = _resolve_bot_id()
     pin = derive_pin(id_, bot_id)
     buttons = ButtonMaker()
+    private = bool(
+        message is not None
+        and getattr(message, "chat", None) is not None
+        and message.chat.type == ChatType.PRIVATE
+        and str(Config.BASE_URL).startswith("https://")
+    )
+    add_open = buttons.web_app_button if private else buttons.url_button
     if Config.WEB_PINCODE:
-        buttons.url_button(
+        add_open(
             "Select Files",
             f"{Config.BASE_URL}/app/files?gid={id_}",
             style=ButtonStyle.PRIMARY,
         )
         buttons.data_button("Pincode", f"sel pin {gid} {pin}")
     else:
-        buttons.url_button(
+        add_open(
             "Select Files",
             f"{Config.BASE_URL}/app/files?gid={id_}&pin={pin}",
             style=ButtonStyle.PRIMARY,
@@ -236,6 +249,8 @@ def arg_parser(items, arg_base):
         "-ut",
         "-bt",
         "-yt",
+        "-ad",
+        "-seedr",
     }
     if Config.DISABLE_BULK and "-b" in items:
         arg_base["-b"] = False
@@ -270,6 +285,7 @@ def arg_parser(items, arg_base):
                     "-ut",
                     "-bt",
                     "-yt",
+                    "-ad",
                 ]
             ):
                 arg_base[part] = True
@@ -326,8 +342,8 @@ def get_size_bytes(size):
 
 async def get_content_type(url):
     try:
-        async with AsyncClient() as client:
-            response = await client.get(url, allow_redirects=True)
+        async with AsyncSession() as client:
+            response = await client.head(url, allow_redirects=True)
             return response.headers.get("Content-Type")
     except Exception:
         return None
@@ -398,6 +414,80 @@ def safe_int(value, default=0):
         return default
 
 
+def parse_dest(value):
+    if isinstance(value, int) or not value:
+        return value, None
+    chat, _, thread = str(value).partition("|")
+    chat = chat.strip()
+    thread = thread.strip()
+    if chat.lstrip("-").isdigit():
+        chat = int(chat)
+    return chat, int(thread) if thread.isdigit() else None
+
+
+class GitInfo:
+    def __init__(self):
+        self._hash = ""
+        self._repo_url = ""
+        self._commit_message = ""
+        self._commit_time = ""
+
+    async def init(self):
+        try:
+            self._hash = (await cmd_exec(["git", "rev-parse", "--short", "HEAD"]))[0]
+        except Exception:
+            self._hash = "unknown"
+        try:
+            url = (await cmd_exec(["git", "remote", "get-url", "origin"]))[0]
+            if url.startswith("https://") and "@" in url:
+                url = "https://" + url.split("@", 1)[1]
+            self._repo_url = url.rstrip(".git")
+        except Exception:
+            self._repo_url = ""
+        try:
+            self._commit_message = (
+                await cmd_exec(["git", "log", "-1", "--format=%s"])
+            )[0]
+        except Exception:
+            self._commit_message = ""
+        try:
+            self._commit_time = (await cmd_exec(["git", "log", "-1", "--format=%ci"]))[
+                0
+            ]
+        except Exception:
+            self._commit_time = ""
+
+    def commit_hash(self):
+        return self._hash or "unknown"
+
+    def commit_url(self):
+        h = self.commit_hash()
+        if self._repo_url and h != "unknown":
+            return f"{self._repo_url}/commit/{h}"
+        return ""
+
+    def commit_msg(self):
+        return self._commit_message or ""
+
+    def commit_time(self):
+        return self._commit_time or ""
+
+    def commit_date(self):
+        if not self._commit_time:
+            return ""
+        try:
+            dt = datetime.strptime(
+                self._commit_time.split(" +")[0].split(" -")[0],
+                "%Y-%m-%d %H:%M:%S",
+            )
+            return dt.strftime("%d/%m/%Y (%H:%M)")
+        except Exception:
+            return self._commit_time
+
+
+git_info = GitInfo()
+
+
 async def download_image_url(url):
     path = "Images/"
     if not await aiopath.isdir(path):
@@ -405,10 +495,8 @@ async def download_image_url(url):
     image_name = url.split("/")[-1].split("?")[0]
     des_dir = ospath.join(path, image_name)
     try:
-        async with AsyncClient(
-            headers={"User-Agent": "Mozilla/5.0"}, follow_redirects=True
-        ) as client:
-            resp = await client.get(url, timeout=15)
+        async with AsyncSession(headers={"User-Agent": "Mozilla/5.0"}) as client:
+            resp = await client.get(url, allow_redirects=True, timeout=15)
             if resp.status_code == 200:
                 async with aiopen(des_dir, "wb") as f:
                     await f.write(resp.content)
@@ -426,7 +514,7 @@ async def _fetch_wallpaperflare(client, query, page, seen):
     )
     url = f"{base_url}?wallpaper={query}&width=1280&height=720&page={page}"
     try:
-        resp = await client.get(url, follow_redirects=True, timeout=15)
+        resp = await client.get(url, allow_redirects=True, timeout=15)
         if resp.status_code != 200:
             return []
         return [m for m in img_pattern.findall(resp.text) if m not in seen]
@@ -438,7 +526,7 @@ async def _fetch_wallpaperflare(client, query, page, seen):
 async def _fetch_peapix(client, country, seen):
     url = f"https://peapix.com/bing/feed?country={country}"
     try:
-        resp = await client.get(url, follow_redirects=True, timeout=15)
+        resp = await client.get(url, allow_redirects=True, timeout=15)
         if resp.status_code != 200:
             LOGGER.warning(f"Peapix fetch failed: status {resp.status_code}")
             return []
@@ -456,7 +544,7 @@ async def _fetch_peapix(client, country, seen):
 async def _fetch_wallhaven(client, query, page, seen):
     url = f"https://wallhaven.cc/api/v1/search?q={query}&categories=111&purity=100&sorting=relevance&page={page}"
     try:
-        resp = await client.get(url, follow_redirects=True, timeout=15)
+        resp = await client.get(url, allow_redirects=True, timeout=15)
         if resp.status_code != 200:
             LOGGER.warning(
                 f"Wallhaven fetch failed [{query} p{page}]: status {resp.status_code}"
@@ -500,9 +588,8 @@ async def search_images():
     new_images = []
 
     try:
-        async with AsyncClient(
+        async with AsyncSession(
             headers={"User-Agent": "Mozilla/5.0"},
-            limits=Limits(max_connections=5),
         ) as client:
             if "wallpaperflare" in sources:
                 for query in query_list:

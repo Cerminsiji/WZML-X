@@ -37,6 +37,7 @@ class MirrorStatus:
     STATUS_FFMPEG = "FFmpeg"
     STATUS_YT = "YouTube"
     STATUS_METADATA = "Metadata"
+    STATUS_SEEDR = "Seedr"
 
 
 class EngineStatus:
@@ -46,7 +47,7 @@ class EngineStatus:
         self.STATUS_AIOHTTP = f"AioHttp v{ver.get('aiohttp', 'N/A')}"
         self.STATUS_GDAPI = f"Google-API v{ver.get('gapi', 'N/A')}"
         self.STATUS_QBIT = f"qBit v{ver.get('qBittorrent', 'N/A')}"
-        self.STATUS_TGRAM = f"Pyro v{ver.get('pyrotgfork', 'N/A')}"
+        self.STATUS_TGRAM = f"WzPyro v{ver.get('wzgram', 'N/A')}"
         self.STATUS_MEGA = f"MegaSDK v{ver.get('mega', 'N/A')}"
         self.STATUS_YTDLP = f"yt-dlp v{ver.get('yt-dlp', 'N/A')}"
         self.STATUS_FFMPEG = f"ffmpeg v{ver.get('ffmpeg', 'N/A')}"
@@ -58,6 +59,7 @@ class EngineStatus:
         self.STATUS_YT = "Youtube-Api"
         self.STATUS_METADATA = "Metadata"
         self.STATUS_UPHOSTER = "Uphoster"
+        self.STATUS_SEEDR = "Seedr"
 
 
 STATUSES = {
